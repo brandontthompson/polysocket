@@ -1,0 +1,25 @@
+{
+  "name": "polysocket",
+  "version": "1.0.0",
+  "description": "socketio wrapper for the polyservice framework",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brandontthompson/polysocket.git"
+  },
+  "author": "brandon thompson",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/brandontthompson/polysocket/issues"
+  },
+  "homepage": "https://github.com/brandontthompson/polysocket#readme",
+  "dependencies": {
+    "socket.io": "^4.5.2"
+  },
+  "devDependencies": {
+    "@types/node": "^18.8.5"
+  }
+}
