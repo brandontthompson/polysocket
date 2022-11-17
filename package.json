@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/brandontthompson/polysocket#readme",
   "dependencies": {
+    "polyservice": "^1.0.2",
     "socket.io": "^4.5.2"
   },
   "devDependencies": {

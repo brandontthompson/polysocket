@@ -1,6 +1,13 @@
 import { service, middleware, method, result, invoke, ensurefail, controller, HttpListener } from "polyservice";
 import { Server, Socket } from "socket.io";
 
+interface polysocketProperties {
+	caseOverride:boolean;
+	errorCallback:Function;
+	connectionCallback:Function;
+	errorValue:string;
+}
+
 export default Server; 
 
 export const socket:controller = {
@@ -12,11 +19,25 @@ export const socket:controller = {
 
 let io:Server;
 const services:service[] = [];
+const middlewares:middleware[] = [];
+const middlewareFunctions:string[] = [];
 
-function init(options:{ httplistener:any }){
+const properties:Partial<polysocketProperties> = {
+	caseOverride:true,
+	errorValue:'SOCKET_ERROR',
+	errorCallback: errorCallback,
+	connectionCallback: connectionCallback
+}
+
+function init(options:{ httplistener:any, caseOverride:boolean|undefined, errorValue:string|undefined, connectionCallback:Function, errorCallback:Function }){
 	if(io) return io;
+	
+	properties.caseOverride = (typeof options.caseOverride === "boolean") ? options.caseOverride : properties.caseOverride;
+	properties.errorValue = overrideCase(options.errorValue || properties.errorValue || 'SOCKET_ERROR');
+	properties.errorCallback = options.errorCallback || properties.errorCallback;
+	properties.connectionCallback = options.connectionCallback || properties.connectionCallback;
 
-	io = new Server(httplistener, {});
+	io = new Server(options.httplistener, {});
 
 	for( let index = 0; index < middlewares.length; index++){
 		const middleware:middleware | any = middlewares[index];
@@ -24,27 +45,42 @@ function init(options:{ httplistener:any }){
 	}
 
 	io.on('connection', function(socket:Socket){
-		service.method.forEach((method:method, index:number) => {
-			socket.on(service.name.toUpperCase() + "_" +method.name.toUpperCase(), function(content){
-				resolver(socket, content, method);			
+		services.forEach((service:service) => {
+			service.method.forEach((method:method, index:number) => {
+				socket.on(overrideCase(service.name + "_" + method.name), function(content){
+					resolver(socket, content, method);			
+				});
 			});
 		});
+		(properties.connectionCallback||connectionCallback)(socket);
 	});
 }
 
 function bind(service:service){
-	service.push(service);
+	services.push(service);
 }
 
-function middleware(middleware){
+function middleware(middleware:middleware){
 	middlewares.push(middleware);
 	middlewareFunctions.push(middleware.callback.name);
 }
 
 async function resolver(socket:Socket, content:any, method:method){
 	invoke(method, {...content, context: { socket:socket, io:io }}).then((resolve:result|ensurefail) => {
-		if(!resolve || (typeof resolve !== "boolean" && ('blame' in (resolve as ensurefail)))) { console.log(resolve.toString()); return socket.emit('SOCKET_ERROR', resolve); }
+		if(!resolve || (typeof resolve !== "boolean" && ('blame' in (resolve as ensurefail)))) { console.log(resolve.toString()); return (properties?.errorCallback||errorCallback)(socket, resolve); }
 
-		return socket.emit(method.name.toUpperCase(), resolve);
+		return socket.emit(overrideCase(method.name), resolve);
 	});
+}
+
+function overrideCase(string:string):string{
+	return (properties.caseOverride) ? string.toUpperCase() : string;
+}
+
+function errorCallback(socket:Socket, resolve:any){
+	return socket.emit(overrideCase(properties.errorValue || 'SOCKET_ERROR'), resolve);
+}
+
+function connectionCallback(socket:Socket){
+	
 }
