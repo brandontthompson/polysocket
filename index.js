@@ -52,11 +52,8 @@ function init(options) {
         io.of(middleware.namespace || null).use((middleware === null || middleware === void 0 ? void 0 : middleware.callback) || middleware);
     }
     io.on("connection", function (socket) {
-        console.log(socket.connected);
         services.forEach((service) => {
-            console.log(service);
             service.method.forEach((method, index) => {
-                console.log(method.name);
                 socket.on(overrideCase(service.name + "_" + method.name), function (content) {
                     resolver(socket, content, method);
                 });

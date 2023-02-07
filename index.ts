@@ -55,11 +55,8 @@ function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, 
 	}
 
 	io.on("connection", function(socket:Socket){
-		console.log(socket.connected)
 		services.forEach((service:service) => {
-			console.log(service)
 			service.method.forEach((method:method, index:number) => {
-				console.log(method.name)
 				socket.on(overrideCase(service.name + "_" + method.name), function(content){
 					resolver(socket, content, method);			
 				});
