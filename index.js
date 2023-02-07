@@ -23,6 +23,14 @@ let io;
 const services = [];
 const middlewares = [];
 const middlewareFunctions = [];
+//io = new Server(3000, {cors: {
+//    origin: "*",
+//    methods: ["GET", "POST"],
+//    allowedHeaders: ["*"]
+//  }});
+//io.on("connection", function(socket:Socket){
+//	console.log("CONN",socket)
+//})
 const properties = {
     caseOverride: true,
     errorValue: 'SOCKET_ERROR',
@@ -30,20 +38,25 @@ const properties = {
     connectionCallback: connectionCallback
 };
 function init(options) {
+    var _a;
     if (io)
-        return io;
+        return;
     properties.caseOverride = (typeof options.caseOverride === "boolean") ? options.caseOverride : properties.caseOverride;
     properties.errorValue = overrideCase(options.errorValue || properties.errorValue || 'SOCKET_ERROR');
     properties.errorCallback = options.errorCallback || properties.errorCallback;
     properties.connectionCallback = options.connectionCallback || properties.connectionCallback;
-    io = new socket_io_1.Server(options.httplistener, {});
+    io = new socket_io_1.Server((_a = options.httplistener) === null || _a === void 0 ? void 0 : _a.Instance.httpServer, options.serveroptions);
+    //io = new Server(options.port, options.serveroptions);
     for (let index = 0; index < middlewares.length; index++) {
         const middleware = middlewares[index];
-        io.of(middleware.namespace || "").use((middleware === null || middleware === void 0 ? void 0 : middleware.callback) || middleware);
+        io.of(middleware.namespace || null).use((middleware === null || middleware === void 0 ? void 0 : middleware.callback) || middleware);
     }
-    io.on('connection', function (socket) {
+    io.on("connection", function (socket) {
+        console.log(socket.connected);
         services.forEach((service) => {
+            console.log(service);
             service.method.forEach((method, index) => {
+                console.log(method.name);
                 socket.on(overrideCase(service.name + "_" + method.name), function (content) {
                     resolver(socket, content, method);
                 });
@@ -77,4 +90,5 @@ function errorCallback(socket, resolve) {
     return socket.emit(overrideCase(properties.errorValue || 'SOCKET_ERROR'), resolve);
 }
 function connectionCallback(socket) {
+    return socket.emit("connected");
 }
