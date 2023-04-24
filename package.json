@@ -1,6 +1,6 @@
 {
   "name": "polysocket",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "socketio wrapper for the polyservice framework",
   "main": "index.js",
   "scripts": {

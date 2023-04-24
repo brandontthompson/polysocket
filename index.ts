@@ -22,15 +22,6 @@ const services:service[] = [];
 const middlewares:middleware[] = [];
 const middlewareFunctions:string[] = [];
 
-//io = new Server(3000, {cors: {
-//    origin: "*",
-//    methods: ["GET", "POST"],
-//    allowedHeaders: ["*"]
-//  }});
-//io.on("connection", function(socket:Socket){
-//	console.log("CONN",socket)
-//})
-
 const properties:Partial<polysocketProperties> = {
 	caseOverride:true,
 	errorValue:'SOCKET_ERROR',
@@ -46,8 +37,7 @@ function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, 
 	properties.errorCallback = options.errorCallback || properties.errorCallback;
 	properties.connectionCallback = options.connectionCallback || properties.connectionCallback;
 
-	io = new Server(options.httplistener?.Instance.httpServer, options.serveroptions);
-	//io = new Server(options.port, options.serveroptions);
+	io = new Server(options.httpserverout || options.httplistener.Instance.httpServer || options.httplistener, options.serveroptions);
 
 	for( let index = 0; index < middlewares.length; index++){
 		const middleware:middleware | any = middlewares[index];

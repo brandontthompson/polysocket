@@ -23,14 +23,6 @@ let io;
 const services = [];
 const middlewares = [];
 const middlewareFunctions = [];
-//io = new Server(3000, {cors: {
-//    origin: "*",
-//    methods: ["GET", "POST"],
-//    allowedHeaders: ["*"]
-//  }});
-//io.on("connection", function(socket:Socket){
-//	console.log("CONN",socket)
-//})
 const properties = {
     caseOverride: true,
     errorValue: 'SOCKET_ERROR',
@@ -38,15 +30,13 @@ const properties = {
     connectionCallback: connectionCallback
 };
 function init(options) {
-    var _a;
     if (io)
         return;
     properties.caseOverride = (typeof options.caseOverride === "boolean") ? options.caseOverride : properties.caseOverride;
     properties.errorValue = overrideCase(options.errorValue || properties.errorValue || 'SOCKET_ERROR');
     properties.errorCallback = options.errorCallback || properties.errorCallback;
     properties.connectionCallback = options.connectionCallback || properties.connectionCallback;
-    io = new socket_io_1.Server((_a = options.httplistener) === null || _a === void 0 ? void 0 : _a.Instance.httpServer, options.serveroptions);
-    //io = new Server(options.port, options.serveroptions);
+    io = new socket_io_1.Server(options.httpserverout || options.httplistener.Instance.httpServer || options.httplistener, options.serveroptions);
     for (let index = 0; index < middlewares.length; index++) {
         const middleware = middlewares[index];
         io.of(middleware.namespace || null).use((middleware === null || middleware === void 0 ? void 0 : middleware.callback) || middleware);
