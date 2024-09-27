@@ -1,5 +1,5 @@
 {
-  "name": "polysocket",
+  "name": "polysock",
   "version": "0.1.0",
   "description": "socketio wrapper for the polyservice framework",
   "main": "index.js",
@@ -17,7 +17,7 @@
   },
   "homepage": "https://github.com/brandontthompson/polysocket#readme",
   "dependencies": {
-    "polyservice": "^1.0.2",
+    "polyservice": "^1.1.0",
     "socket.io": "^4.5.4"
   },
   "devDependencies": {

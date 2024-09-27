@@ -9,9 +9,19 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.socket = void 0;
+exports.socket = exports.format = exports.contentFormat = void 0;
 const polyservice_1 = require("polyservice");
 const socket_io_1 = require("socket.io");
+var contentFormat;
+(function (contentFormat) {
+    contentFormat["JSON"] = "JSON";
+    contentFormat["XML"] = "XML";
+    contentFormat["FILE"] = "FILE";
+    contentFormat["TEXT"] = "TEXT";
+    contentFormat["PARAM"] = "PARAM";
+    contentFormat["CSV"] = "CSV";
+})(contentFormat || (exports.contentFormat = contentFormat = {}));
+exports.format = {};
 exports.default = socket_io_1.Server;
 exports.socket = {
     name: "socket",
@@ -37,14 +47,24 @@ function init(options) {
     properties.errorCallback = options.errorCallback || properties.errorCallback;
     properties.connectionCallback = options.connectionCallback || properties.connectionCallback;
     io = new socket_io_1.Server(options.httpserverout || options.httplistener.Instance.httpServer || options.httplistener, options.serveroptions);
-    for (let index = 0; index < middlewares.length; index++) {
+    services.forEach((service) => {
+        service.method.forEach((method) => {
+            if (method.middleware && !Array.isArray(method.middleware)) {
+                method.middleware = [method.middleware];
+                middlewares.push(...(method.middleware));
+            }
+        });
+    });
+    for (let index = 0, len = middlewares.length; index < len; index++) {
         const middleware = middlewares[index];
-        io.of(middleware.namespace || null).use((middleware === null || middleware === void 0 ? void 0 : middleware.callback) || middleware);
+        io.of(middleware.namespace || null).use(middleware.callback);
     }
     io.on("connection", function (socket) {
         services.forEach((service) => {
             service.method.forEach((method, index) => {
-                socket.on(overrideCase(service.name + "_" + method.name), function (content) {
+                socket.on(overrideCase(service.name + "_" + method.name), //resolver()))
+                function (content) {
+                    console.log(content);
                     resolver(socket, content, method);
                 });
             });
@@ -61,13 +81,16 @@ function middleware(middleware) {
 }
 function resolver(socket, content, method) {
     return __awaiter(this, void 0, void 0, function* () {
+        //return function(socket:Socket, next:Function){
         (0, polyservice_1.invoke)(method, Object.assign(Object.assign({}, content), { context: { socket: socket, io: io } })).then((resolve) => {
             if (!resolve || (typeof resolve !== "boolean" && ('blame' in resolve))) {
                 console.log(resolve.toString());
                 return ((properties === null || properties === void 0 ? void 0 : properties.errorCallback) || errorCallback)(socket, resolve);
             }
+            console.log(resolve);
             return socket.emit(overrideCase(method.name), resolve);
         });
+        //}
     });
 }
 function overrideCase(string) {

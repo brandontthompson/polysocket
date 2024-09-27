@@ -1,6 +1,19 @@
 import { service, middleware, method, result, invoke, ensurefail, controller, HttpListener } from "polyservice";
 import { Server, Socket } from "socket.io";
 
+export enum contentFormat {
+	JSON	= "JSON",
+	XML	= "XML",
+	FILE	= "FILE",
+	TEXT	= "TEXT",
+	PARAM	= "PARAM",
+	CSV	= "CSV"
+}
+
+export const format = {
+
+}
+
 interface polysocketProperties {
 	caseOverride:boolean;
 	errorCallback:Function;
@@ -39,17 +52,27 @@ function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, 
 
 	io = new Server(options.httpserverout || options.httplistener.Instance.httpServer || options.httplistener, options.serveroptions);
 
-	for( let index = 0; index < middlewares.length; index++){
+	services.forEach((service:service) => {
+		service.method.forEach((method:method) => {
+			if(method.middleware && !Array.isArray(method.middleware)){
+			       	method.middleware = [method.middleware];
+				middlewares.push(...(method.middleware));
+			}
+		});
+	});
+
+	for( let index = 0, len = middlewares.length; index < len; index++){
 		const middleware:middleware | any = middlewares[index];
-		io.of(middleware.namespace || null).use(middleware?.callback || middleware);
+		io.of(middleware.namespace || null).use(middleware.callback);
 	}
 
 	io.on("connection", function(socket:Socket){
 		services.forEach((service:service) => {
 			service.method.forEach((method:method, index:number) => {
-				socket.on(overrideCase(service.name + "_" + method.name), function(content){
+				socket.on(overrideCase(service.name + "_" + method.name), //resolver()))
+					  function(content:any){
 					resolver(socket, content, method);			
-				});
+						      });
 			});
 		});
 		(properties.connectionCallback||connectionCallback)(socket);
@@ -66,11 +89,18 @@ function middleware(middleware:middleware){
 }
 
 async function resolver(socket:Socket, content:any, method:method){
-	invoke(method, {...content, context: { socket:socket, io:io }}).then((resolve:result|ensurefail) => {
-		if(!resolve || (typeof resolve !== "boolean" && ('blame' in (resolve as ensurefail)))) { console.log(resolve.toString()); return (properties?.errorCallback||errorCallback)(socket, resolve); }
+	//return function(socket:Socket, next:Function){
+	//	need to parse the content so we can pass it to the func
+	//	for text we can just return content but for others we need to use a method similar to polyexpress
+		invoke(method, {...content, context: { socket:socket, io:io }, /**next:next**/}).then((resolve:result|ensurefail) => {
+			if(!resolve || (typeof resolve !== "boolean" && ('blame' in (resolve as ensurefail)))) { console.log(resolve.toString()); return (properties?.errorCallback||errorCallback)(socket, resolve); }
 
-		return socket.emit(overrideCase(method.name), resolve);
-	});
+			console.log(resolve)
+
+
+			return socket.emit(overrideCase(method.name), resolve);
+		});
+	//}
 }
 
 function overrideCase(string:string):string{
