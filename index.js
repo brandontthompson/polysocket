@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.socket = exports.format = exports.contentFormat = void 0;
 const polyservice_1 = require("polyservice");
@@ -35,9 +26,10 @@ const middlewares = [];
 const middlewareFunctions = [];
 const properties = {
     caseOverride: true,
+    useServiceName: true,
     errorValue: 'SOCKET_ERROR',
     errorCallback: errorCallback,
-    connectionCallback: connectionCallback
+    connectionCallback: connectionCallback,
 };
 function init(options) {
     if (io)
@@ -57,16 +49,15 @@ function init(options) {
     });
     for (let index = 0, len = middlewares.length; index < len; index++) {
         const middleware = middlewares[index];
-        io.of(middleware.namespace || null).use(middleware.callback);
+        io.of(middleware.namespace || "/").use(resolveMiddleware(middleware));
     }
     io.on("connection", function (socket) {
         services.forEach((service) => {
             service.method.forEach((method, index) => {
-                socket.on(overrideCase(service.name + "_" + method.name), //resolver()))
-                function (content) {
-                    console.log(content);
-                    resolver(socket, content, method);
-                });
+                socket.on(overrideCase([options.userServiceName ? service.name : "", method.name].join("_")), resolver(method));
+                //		  function(content:any){
+                //		resolver(socket, content, method);			
+                //			      });
             });
         });
         (properties.connectionCallback || connectionCallback)(socket);
@@ -79,9 +70,17 @@ function middleware(middleware) {
     middlewares.push(middleware);
     middlewareFunctions.push(middleware.callback.name);
 }
-function resolver(socket, content, method) {
-    return __awaiter(this, void 0, void 0, function* () {
+function resolveMiddleware(middleware) {
+    return function (socket, next) {
+        middleware.callback(next);
+    };
+}
+//async function resolver(socket:Socket, content:any, method:method){
+function resolver(method) {
+    return function (socket, next, content) {
         //return function(socket:Socket, next:Function){
+        //	need to parse the content so we can pass it to the func
+        //	for text we can just return content but for others we need to use a method similar to polyexpress
         (0, polyservice_1.invoke)(method, Object.assign(Object.assign({}, content), { context: { socket: socket, io: io } })).then((resolve) => {
             if (!resolve || (typeof resolve !== "boolean" && ('blame' in resolve))) {
                 console.log(resolve.toString());
@@ -90,8 +89,7 @@ function resolver(socket, content, method) {
             console.log(resolve);
             return socket.emit(overrideCase(method.name), resolve);
         });
-        //}
-    });
+    };
 }
 function overrideCase(string) {
     return (properties.caseOverride) ? string.toUpperCase() : string;

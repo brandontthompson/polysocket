@@ -16,6 +16,7 @@ export const format = {
 
 interface polysocketProperties {
 	caseOverride:boolean;
+	useServiceName:boolean;
 	errorCallback:Function;
 	connectionCallback:Function;
 	errorValue:string;
@@ -37,12 +38,13 @@ const middlewareFunctions:string[] = [];
 
 const properties:Partial<polysocketProperties> = {
 	caseOverride:true,
+	useServiceName:true,
 	errorValue:'SOCKET_ERROR',
-	errorCallback: errorCallback,
-	connectionCallback: connectionCallback
+	errorCallback:errorCallback,
+	connectionCallback:connectionCallback,
 }
 
-function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, caseOverride:boolean|undefined, errorValue:string|undefined, connectionCallback:Function, errorCallback:Function }){
+function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, caseOverride:boolean|undefined, userServiceName:boolean|undefined, errorValue:string|undefined, connectionCallback:Function, errorCallback:Function }){
 	if(io) return;
 	
 	properties.caseOverride = (typeof options.caseOverride === "boolean") ? options.caseOverride : properties.caseOverride;
@@ -63,16 +65,17 @@ function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, 
 
 	for( let index = 0, len = middlewares.length; index < len; index++){
 		const middleware:middleware | any = middlewares[index];
-		io.of(middleware.namespace || null).use(middleware.callback);
+		io.of(middleware.namespace || "/").use(resolveMiddleware(middleware))
 	}
 
 	io.on("connection", function(socket:Socket){
 		services.forEach((service:service) => {
 			service.method.forEach((method:method, index:number) => {
-				socket.on(overrideCase(service.name + "_" + method.name), //resolver()))
-					  function(content:any){
-					resolver(socket, content, method);			
-						      });
+				socket.on(overrideCase([options.userServiceName ? service.name : "", method.name].join("_")), resolver(method))
+
+			//		  function(content:any){
+			//		resolver(socket, content, method);			
+			//			      });
 			});
 		});
 		(properties.connectionCallback||connectionCallback)(socket);
@@ -88,7 +91,18 @@ function middleware(middleware:middleware){
 	middlewareFunctions.push(middleware.callback.name);
 }
 
-async function resolver(socket:Socket, content:any, method:method){
+function resolveMiddleware(middleware:middleware){
+	return function(socket:Socket, next:Function){
+		middleware.callback(next);
+	}
+}
+
+//async function resolver(socket:Socket, content:any, method:method){
+function resolver(method:method){
+
+	return function(socket:Socket, next:Function, content:any){
+
+
 	//return function(socket:Socket, next:Function){
 	//	need to parse the content so we can pass it to the func
 	//	for text we can just return content but for others we need to use a method similar to polyexpress
@@ -100,7 +114,7 @@ async function resolver(socket:Socket, content:any, method:method){
 
 			return socket.emit(overrideCase(method.name), resolve);
 		});
-	//}
+	}
 }
 
 function overrideCase(string:string):string{
