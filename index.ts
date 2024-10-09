@@ -36,6 +36,10 @@ const services:service[] = [];
 const middlewares:middleware[] = [];
 const middlewareFunctions:string[] = [];
 
+export interface socketMethod extends method {
+	emit?:string
+}
+
 const properties:Partial<polysocketProperties> = {
 	caseOverride:true,
 	useServiceName:true,
@@ -44,7 +48,7 @@ const properties:Partial<polysocketProperties> = {
 	connectionCallback:connectionCallback,
 }
 
-function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, caseOverride:boolean|undefined, userServiceName:boolean|undefined, errorValue:string|undefined, connectionCallback:Function, errorCallback:Function }){
+function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, caseOverride:boolean|undefined, useServiceName:boolean|undefined, errorValue:string|undefined, connectionCallback:Function, errorCallback:Function }){
 	if(io) return;
 	
 	properties.caseOverride = (typeof options.caseOverride === "boolean") ? options.caseOverride : properties.caseOverride;
@@ -55,7 +59,9 @@ function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, 
 	io = new Server(options.httpserverout || options.httplistener.Instance.httpServer || options.httplistener, options.serveroptions);
 
 	services.forEach((service:service) => {
-		service.method.forEach((method:method) => {
+		service.method.forEach((method:socketMethod) => {
+			if(!method.emit) method.emit = [options.useServiceName ? service.name : "", method.name].join("_");
+			console.log(method.emit)
 			if(method.middleware && !Array.isArray(method.middleware)){
 			       	method.middleware = [method.middleware];
 				middlewares.push(...(method.middleware));
@@ -65,17 +71,14 @@ function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, 
 
 	for( let index = 0, len = middlewares.length; index < len; index++){
 		const middleware:middleware | any = middlewares[index];
-		io.of(middleware.namespace || "/").use(resolveMiddleware(middleware))
+		//io.of(middleware.namespace || "").use(resolveMiddleware(middleware))
 	}
 
 	io.on("connection", function(socket:Socket){
 		services.forEach((service:service) => {
-			service.method.forEach((method:method, index:number) => {
-				socket.on(overrideCase([options.userServiceName ? service.name : "", method.name].join("_")), resolver(method))
+			service.method.forEach((method:socketMethod, index:number) => {
+				socket.on(overrideCase(method.emit || method.name), resolver(socket, method))
 
-			//		  function(content:any){
-			//		resolver(socket, content, method);			
-			//			      });
 			});
 		});
 		(properties.connectionCallback||connectionCallback)(socket);
@@ -97,10 +100,11 @@ function resolveMiddleware(middleware:middleware){
 	}
 }
 
-//async function resolver(socket:Socket, content:any, method:method){
-function resolver(method:method){
 
-	return function(socket:Socket, next:Function, content:any){
+function resolver(socket:Socket, method:socketMethod){
+
+	return function(content:any){
+		console.log("HER",content)
 
 
 	//return function(socket:Socket, next:Function){
@@ -112,7 +116,7 @@ function resolver(method:method){
 			console.log(resolve)
 
 
-			return socket.emit(overrideCase(method.name), resolve);
+			return socket.emit(overrideCase(method.emit || method.name), resolve);
 		});
 	}
 }
@@ -128,3 +132,4 @@ function errorCallback(socket:Socket, resolve:any){
 function connectionCallback(socket:Socket){	
 	return socket.emit("connected");
 }
+
