@@ -60,8 +60,7 @@ function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, 
 
 	services.forEach((service:service) => {
 		service.method.forEach((method:socketMethod) => {
-			if(!method.emit) method.emit = [options.useServiceName ? service.name : "", method.name].join("_");
-			console.log(method.emit)
+			if(!method.emit) method.emit = (options.useServiceName ? [service.name, method.name].join("_") : method.name);
 			if(method.middleware && !Array.isArray(method.middleware)){
 			       	method.middleware = [method.middleware];
 				middlewares.push(...(method.middleware));
@@ -71,14 +70,13 @@ function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, 
 
 	for( let index = 0, len = middlewares.length; index < len; index++){
 		const middleware:middleware | any = middlewares[index];
-		//io.of(middleware.namespace || "").use(resolveMiddleware(middleware))
+		io/**.of(middleware.namespace || "/")**/.use(resolveMiddleware(middleware))
 	}
 
 	io.on("connection", function(socket:Socket){
 		services.forEach((service:service) => {
 			service.method.forEach((method:socketMethod, index:number) => {
 				socket.on(overrideCase(method.emit || method.name), resolver(socket, method))
-
 			});
 		});
 		(properties.connectionCallback||connectionCallback)(socket);
@@ -104,17 +102,10 @@ function resolveMiddleware(middleware:middleware){
 function resolver(socket:Socket, method:socketMethod){
 
 	return function(content:any){
-		console.log("HER",content)
-
-
-	//return function(socket:Socket, next:Function){
 	//	need to parse the content so we can pass it to the func
 	//	for text we can just return content but for others we need to use a method similar to polyexpress
 		invoke(method, {...content, context: { socket:socket, io:io }, /**next:next**/}).then((resolve:result|ensurefail) => {
 			if(!resolve || (typeof resolve !== "boolean" && ('blame' in (resolve as ensurefail)))) { console.log(resolve.toString()); return (properties?.errorCallback||errorCallback)(socket, resolve); }
-
-			console.log(resolve)
-
 
 			return socket.emit(overrideCase(method.emit || method.name), resolve);
 		});
