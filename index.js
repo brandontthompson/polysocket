@@ -27,6 +27,8 @@ const middlewareFunctions = [];
 const properties = {
     caseOverride: true,
     useServiceName: true,
+    serviceDelimiter: ':',
+    //serviceAsNamespace:false,
     errorValue: 'SOCKET_ERROR',
     errorCallback: errorCallback,
     connectionCallback: connectionCallback,
@@ -38,11 +40,13 @@ function init(options) {
     properties.errorValue = overrideCase(options.errorValue || properties.errorValue || 'SOCKET_ERROR');
     properties.errorCallback = options.errorCallback || properties.errorCallback;
     properties.connectionCallback = options.connectionCallback || properties.connectionCallback;
+    properties.serviceDelimiter = options.serviceDelimiter || properties.serviceDelimiter;
     io = new socket_io_1.Server(options.httpserverout || options.httplistener.Instance.httpServer || options.httplistener, options.serveroptions);
     services.forEach((service) => {
         service.method.forEach((method) => {
             if (!method.emit)
-                method.emit = (options.useServiceName ? [service.name, method.name].join("_") : method.name);
+                method.emit = (options.useServiceName ? [service.name, method.name].join(properties.serviceDelimiter) : method.name);
+            //if(options.serviceAsNamespace) service.namespace = service.name;
             if (method.middleware && !Array.isArray(method.middleware)) {
                 method.middleware = [method.middleware];
                 middlewares.push(...(method.middleware));
@@ -51,7 +55,8 @@ function init(options) {
     });
     for (let index = 0, len = middlewares.length; index < len; index++) {
         const middleware = middlewares[index];
-        io /**.of(middleware.namespace || "/")**/.use(resolveMiddleware(middleware));
+        //if(middleware.namespace) i = io.of("/"+middleware.namespace)
+        io.of("/" + (middleware.namespace || "")).use(resolveMiddleware(middleware.callback));
     }
     io.on("connection", function (socket) {
         services.forEach((service) => {
@@ -69,16 +74,17 @@ function middleware(middleware) {
     middlewares.push(middleware);
     middlewareFunctions.push(middleware.callback.name);
 }
-function resolveMiddleware(middleware) {
+function resolveMiddleware(callback) {
     return function (socket, next) {
-        middleware.callback(next);
+        console.log(callback);
+        (0, polyservice_1.invoke)(callback, { next: next });
     };
 }
 function resolver(socket, method) {
     return function (content) {
         //	need to parse the content so we can pass it to the func
         //	for text we can just return content but for others we need to use a method similar to polyexpress
-        (0, polyservice_1.invoke)(method, Object.assign(Object.assign({}, content), { context: { socket: socket, io: io } })).then((resolve) => {
+        (0, polyservice_1.invoke)(method, Object.assign(Object.assign({}, (collectParams(content, method))), { context: { socket: socket, io: io } })).then((resolve) => {
             if (!resolve || (typeof resolve !== "boolean" && ('blame' in resolve))) {
                 console.log(resolve.toString());
                 return ((properties === null || properties === void 0 ? void 0 : properties.errorCallback) || errorCallback)(socket, resolve);
@@ -86,6 +92,10 @@ function resolver(socket, method) {
             return socket.emit(overrideCase(method.emit || method.name), resolve);
         });
     };
+}
+function collectParams(content, method) {
+    const param = {};
+    return param;
 }
 function overrideCase(string) {
     return (properties.caseOverride) ? string.toUpperCase() : string;

@@ -16,6 +16,7 @@ export const format = {
 
 interface polysocketProperties {
 	caseOverride:boolean;
+	serviceDelimiter:string;
 	useServiceName:boolean;
 	errorCallback:Function;
 	connectionCallback:Function;
@@ -43,24 +44,28 @@ export interface socketMethod extends method {
 const properties:Partial<polysocketProperties> = {
 	caseOverride:true,
 	useServiceName:true,
+	serviceDelimiter:':',
+	//serviceAsNamespace:false,
 	errorValue:'SOCKET_ERROR',
 	errorCallback:errorCallback,
 	connectionCallback:connectionCallback,
 }
 
-function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, caseOverride:boolean|undefined, useServiceName:boolean|undefined, errorValue:string|undefined, connectionCallback:Function, errorCallback:Function }){
+function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, caseOverride:boolean|undefined, serviceDelimiter:string|undefined, useServiceName:boolean|undefined, serviceAsNamespace:boolean|undefined, errorValue:string|undefined, connectionCallback:Function, errorCallback:Function }){
 	if(io) return;
 	
 	properties.caseOverride = (typeof options.caseOverride === "boolean") ? options.caseOverride : properties.caseOverride;
 	properties.errorValue = overrideCase(options.errorValue || properties.errorValue || 'SOCKET_ERROR');
 	properties.errorCallback = options.errorCallback || properties.errorCallback;
 	properties.connectionCallback = options.connectionCallback || properties.connectionCallback;
+	properties.serviceDelimiter = options.serviceDelimiter || properties.serviceDelimiter;
 
 	io = new Server(options.httpserverout || options.httplistener.Instance.httpServer || options.httplistener, options.serveroptions);
 
 	services.forEach((service:service) => {
 		service.method.forEach((method:socketMethod) => {
-			if(!method.emit) method.emit = (options.useServiceName ? [service.name, method.name].join("_") : method.name);
+			if(!method.emit) method.emit = (options.useServiceName ? [service.name, method.name].join(properties.serviceDelimiter) : method.name);
+			//if(options.serviceAsNamespace) service.namespace = service.name;
 			if(method.middleware && !Array.isArray(method.middleware)){
 			       	method.middleware = [method.middleware];
 				middlewares.push(...(method.middleware));
@@ -70,8 +75,10 @@ function init(options:{ httplistener:any, serveroptions:any, httpserverout:any, 
 
 	for( let index = 0, len = middlewares.length; index < len; index++){
 		const middleware:middleware | any = middlewares[index];
-		io/**.of(middleware.namespace || "/")**/.use(resolveMiddleware(middleware))
+		//if(middleware.namespace) i = io.of("/"+middleware.namespace)
+		io.of("/"+(middleware.namespace || "")).use(resolveMiddleware(middleware.callback))
 	}
+
 
 	io.on("connection", function(socket:Socket){
 		services.forEach((service:service) => {
@@ -92,9 +99,10 @@ function middleware(middleware:middleware){
 	middlewareFunctions.push(middleware.callback.name);
 }
 
-function resolveMiddleware(middleware:middleware){
+function resolveMiddleware(callback:socketMethod){
 	return function(socket:Socket, next:Function){
-		middleware.callback(next);
+		console.log(callback)
+		invoke(callback, {next: next});
 	}
 }
 
@@ -104,12 +112,17 @@ function resolver(socket:Socket, method:socketMethod){
 	return function(content:any){
 	//	need to parse the content so we can pass it to the func
 	//	for text we can just return content but for others we need to use a method similar to polyexpress
-		invoke(method, {...content, context: { socket:socket, io:io }, /**next:next**/}).then((resolve:result|ensurefail) => {
+		invoke(method, {...(collectParams(content, method)), context: { socket:socket, io:io }, /**next:next**/}).then((resolve:result|ensurefail) => {
 			if(!resolve || (typeof resolve !== "boolean" && ('blame' in (resolve as ensurefail)))) { console.log(resolve.toString()); return (properties?.errorCallback||errorCallback)(socket, resolve); }
-
 			return socket.emit(overrideCase(method.emit || method.name), resolve);
 		});
 	}
+}
+
+function collectParams(content:any, method:socketMethod|middleware){
+	const param = {};
+
+	return param;
 }
 
 function overrideCase(string:string):string{
